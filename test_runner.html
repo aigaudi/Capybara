@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Bookmark Sorter - Unit Tests</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    h1 { text-align: center; }
+    #results { margin-top: 20px; border: 1px solid #ccc; padding: 10px; }
+    .log { margin-bottom: 5px; }
+    .pass { color: green; }
+    .fail { color: red; font-weight: bold; }
+    .summary { margin-top: 15px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Smart Bookmark Sorter - Unit Tests</h1>
+  <p>Running tests... Check the browser console for detailed logs. A summary will be displayed below.</p>
+  <div id="results">
+    <h2>Test Output:</h2>
+    <p><em>(Console output will also appear in your browser's developer tools)</em></p>
+  </div>
+  <div id="summary-placeholder"></div>
+
+  <script>
+    // Redirect console.log and console.error to display on the page
+    const resultsDiv = document.getElementById('results');
+    const originalConsoleLog = console.log;
+    const originalConsoleError = console.error;
+
+    console.log = function(...args) {
+      originalConsoleLog.apply(console, args);
+      const logEntry = document.createElement('div');
+      logEntry.className = 'log';
+      logEntry.textContent = args.join(' ');
+      if (args.length > 0 && typeof args[0] === 'string' && args[0].startsWith('PASS:')) {
+        logEntry.classList.add('pass');
+      }
+      resultsDiv.appendChild(logEntry);
+    };
+
+    console.error = function(...args) {
+      originalConsoleError.apply(console, args);
+      const logEntry = document.createElement('div');
+      logEntry.className = 'log fail';
+      logEntry.textContent = args.join(' ');
+      resultsDiv.appendChild(logEntry);
+    };
+
+    // Function to display summary in HTML, called by test_background.js
+    function displaySummaryInHTML(summary) {
+        const summaryDiv = document.getElementById('summary-placeholder');
+        summaryDiv.innerHTML = summary.replace(/\n/g, '<br>'); // Replace newlines with <br> for HTML
+        summaryDiv.classList.add('summary'); // Add class for styling
+    }
+
+    // Overwrite the logSummary in test_background.js to also update HTML
+    // This is a bit of a hack, ideally test_background.js would be more modular
+    // and provide data that test_runner.html can consume.
+    // We will redefine it *after* test_background.js is loaded.
+  </script>
+
+  <!-- Load the actual functions to be tested -->
+  <script src="background.js"></script>
+  <!-- Load the test script -->
+  <script src="test_background.js"></script>
+
+  <script>
+    // Now that test_background.js is loaded, we can attempt to redefine its logSummary
+    // to also update the HTML.
+    if (typeof logSummary === 'function') {
+      const originalLogSummary = logSummary;
+      logSummary = function() {
+        // Call the original summary logic (which logs to console and updates its own counters)
+        originalLogSummary();
+
+        // Prepare HTML summary (re-accessing counters from test_background.js)
+        // This assumes global test counters in test_background.js (passedDetectLanguage, etc.)
+        const totalPassed = passedDetectLanguage + passedNormalizeTitle + passedGenerateFolderName + passedSelectBestCandidate + passedSanitizeFolderName;
+        const totalFailed = failedDetectLanguage + failedNormalizeTitle + failedGenerateFolderName + failedSelectBestCandidate + failedSanitizeFolderName;
+        const totalTests = totalPassed + totalFailed;
+
+        let htmlSummary = `<h2>Test Summary</h2>`;
+        htmlSummary += `<p class="${failedDetectLanguage > 0 ? 'fail' : 'pass'}">detectLanguage: ${passedDetectLanguage} passed, ${failedDetectLanguage} failed.</p>`;
+        htmlSummary += `<p class="${failedNormalizeTitle > 0 ? 'fail' : 'pass'}">normalizeTitle: ${passedNormalizeTitle} passed, ${failedNormalizeTitle} failed.</p>`;
+        htmlSummary += `<p class="${failedGenerateFolderName > 0 ? 'fail' : 'pass'}">generateFolderNameCandidates: ${passedGenerateFolderName} passed, ${failedGenerateFolderName} failed.</p>`;
+        htmlSummary += `<p class="${failedSelectBestCandidate > 0 ? 'fail' : 'pass'}">selectBestCandidate: ${passedSelectBestCandidate} passed, ${failedSelectBestCandidate} failed.</p>`;
+        htmlSummary += `<p class="${failedSanitizeFolderName > 0 ? 'fail' : 'pass'}">sanitizeFolderName: ${passedSanitizeFolderName} passed, ${failedSanitizeFolderName} failed.</p>`;
+        htmlSummary += `<h3 class="${totalFailed > 0 ? 'fail' : 'pass'}">Total: ${totalPassed} passed, ${totalFailed} failed out of ${totalTests} tests.</h3>`;
+        
+        displaySummaryInHTML(htmlSummary);
+      };
+
+      // If test_background.js already ran its logSummary via its own direct call or onload,
+      // we might need to call the new version to update HTML.
+      // However, the current test_background.js calls logSummary() at the end.
+      // If it were event driven (e.g. window.onload), we might need to re-trigger.
+      // For simplicity, we assume test_background.js's final logSummary() call will
+      // execute our new wrapper if scripts are processed in order.
+      // The `window.onload = logSummary;` in test_background.js might be problematic
+      // if it fires before this redefinition. Let's remove it or ensure it's handled.
+      // The current test_background.js has a check `if (typeof window !== 'undefined')`
+      // and then `window.onload = logSummary;`
+      // It's better if test_runner.html controls the final summary display.
+
+      // Let's ensure our enhanced logSummary runs
+      // by overriding the window.onload if it was set by test_background.js
+      window.onload = logSummary; // Ensure our version of logSummary is called on load
+    } else {
+      console.error("logSummary function not found from test_background.js. HTML summary will not be updated by the runner.");
+    }
+  </script>
+
+</body>
+</html>
