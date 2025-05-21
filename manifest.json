@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Smart Bookmark Sorter",
+  "version": "0.1.0",
+  "description": "Automatically sorts new bookmarks into folders based on their titles.",
+  "permissions": ["bookmarks"],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
